@@ -10,6 +10,7 @@ A tool that encodes English words into DNA sequences and translates them into RN
 - 📆 Binary builds for **Windows (.exe)** and **Linux (AppImage)** available on the [Releases](../../releases) page
 - ❄️ Works offline with cached word lists
 - 🧰 Built with [Nuitka](https://nuitka.net/) for standalone executable generation
+- Video of operation at [Youtube](https://youtu.be/f_I9mJR0wEY)
 
 ## 📅 Download
 
