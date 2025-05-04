@@ -1,0 +1,142 @@
+name: Build Nuitka EXE for Windows and Linux AppImage
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install nuitka pyside6 nltk appdirs
+
+      - name: Verify project structure
+        run: |
+          if (-Not (Test-Path "dnaencoder_GUI.py")) { Write-Error "dnaencoder_GUI.py not found"; exit 1 }
+
+      - name: Precompile Python files
+        run: python -m compileall .
+
+      - name: Build EXE with Nuitka
+        shell: cmd
+        run: |
+          python -m nuitka dnaencoder_GUI.py \
+            --standalone \
+            --onefile \
+            --follow-imports \
+            --enable-plugin=pyside6 \
+            --output-dir=build \
+            --windows-console-mode=disable \
+            --assume-yes-for-downloads \
+            --output-filename=DNAtoPolypeptideMessageEncoder.exe
+
+      - name: Upload EXE as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DNAtoPolypeptideMessageEncoder-Windows
+          path: build/DNAtoPolypeptideMessageEncoder.exe
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/DNAtoPolypeptideMessageEncoder.exe
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            patchelf desktop-file-utils libgirepository1.0-dev \
+            libfuse2 imagemagick libfreetype6-dev libpng-dev \
+            libqt6core6 libqt6gui6 libqt6widgets6
+
+      - name: Install Python packages
+        run: |
+          pip install nuitka pyside6 nltk appdirs
+          python -c "import nltk; nltk.download('words', download_dir='nltk_data', quiet=True)"
+
+      - name: Build binary with Nuitka
+        run: |
+          python -m nuitka dnaencoder_GUI.py \
+            --include-data-dir=nltk_data=nltk_data \
+            --standalone \
+            --onefile \
+            --follow-imports \
+            --enable-plugin=pyside6 \
+            --output-dir=build \
+            --assume-yes-for-downloads \
+            --include-module=appdirs,nltk \
+            --output-filename=DNAtoPolypeptideMessageEncoder.bin
+
+      - name: Prepare AppDir structure
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp build/DNAtoPolypeptideMessageEncoder.bin AppDir/usr/bin/DNAtoPolypeptideMessageEncoder
+          chmod +x AppDir/usr/bin/DNAtoPolypeptideMessageEncoder
+          cp -r nltk_data AppDir/nltk_data
+
+          # Create AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/DNAtoPolypeptideMessageEncoder" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # Create .desktop file
+          cat > AppDir/DNAtoPolypeptideMessageEncoder.desktop << EOF
+          [Desktop Entry]
+          Name=DNA to Polypeptide Encoder
+          Exec=DNAtoPolypeptideMessageEncoder
+          Icon=DNAtoPolypeptideMessageEncoder
+          Type=Application
+          Categories=Utility;
+          EOF
+
+          # Add icon
+          cp assets/DNAtoPolypeptideMessageEncoder.png AppDir/DNAtoPolypeptideMessageEncoder.png
+
+      - name: Build AppImage
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage AppDir DNAtoPolypeptideMessageEncoder-x86_64.AppImage
+
+      - name: Upload AppImage as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DNAtoPolypeptideMessageEncoder-Linux
+          path: DNAtoPolypeptideMessageEncoder-x86_64.AppImage
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DNAtoPolypeptideMessageEncoder-x86_64.AppImage
