@@ -42,6 +42,19 @@ from utils import reverse_complement
 
 VERSION = "0.0.1 - 04.05.2025"
 
+# --- Configuration ---
+class Config:
+    """Centralized configuration for the application."""
+    MAX_CANDIDATES = 10000
+    TIMEOUT = 10
+    MIN_WORD_LENGTH = 3
+    MIN_DNA_LENGTH = 6
+    DATA_DIR = appdirs.user_data_dir("DNA To Polypeptide Encoder", "Divergentti")
+    POSSIBLE_WORDS_FILE = os.path.join(DATA_DIR, "possiblewords.json")
+
+os.makedirs(Config.DATA_DIR, exist_ok=True)
+
+
 # Setup logging
 logging.basicConfig(
     filename=os.path.join(appdirs.user_data_dir("DNA To Polypeptide Encoder", "Divergentti"), "app.log"),
@@ -53,15 +66,6 @@ logging.basicConfig(
 debug_files = False
 debug_generation = False
 
-# --- Configuration ---
-class Config:
-    """Centralized configuration for the application."""
-    MAX_CANDIDATES = 10000
-    TIMEOUT = 10
-    MIN_WORD_LENGTH = 3
-    MIN_DNA_LENGTH = 6
-    DATA_DIR = appdirs.user_data_dir("DNA To Polypeptide Encoder", "Divergentti")
-    POSSIBLE_WORDS_FILE = os.path.join(DATA_DIR, "possiblewords.json")
 
 # --- Directory setup ---
 def get_data_dir():
@@ -298,10 +302,12 @@ class EmbedWords:
                 logging.info("No candidates left after embedding %s", word)
                 break
 
+        timed_out_flag = False
         # Filter results that truly contain all words
         filtered = []
         for entry in queue:
             if time.time() - start_time > timeout:
+                timed_out_flag = True
                 break
             seq = entry['seq']
             frame_checker = IterateFrames(seq)
@@ -310,7 +316,8 @@ class EmbedWords:
             if all(w in found_words for w in words):
                 filtered.append(entry)
 
-        return filtered
+        return filtered, timed_out_flag
+
 
 class Userinterface:
     """Command-line interface for the DNA encoder."""
