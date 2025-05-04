@@ -38,7 +38,7 @@ Try searching or embedding them in the GUI!
 
 This project is licensed under the [MIT License](LICENSE).
 
-\ua9 2025 Jari Hiltunen / GitHub [Divergentti](https://github.com/Divergentti)
+(C) 2025 Jari Hiltunen / GitHub [Divergentti](https://github.com/Divergentti)
 
 ---
 
