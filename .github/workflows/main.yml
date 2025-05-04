@@ -35,16 +35,7 @@ jobs:
 
       - name: Build EXE with Nuitka
         shell: cmd
-        run: |
-          python -m nuitka dnaencoder_GUI.py \
-            --standalone \
-            --onefile \
-            --follow-imports \
-            --enable-plugin=pyside6 \
-            --output-dir=build \
-            --windows-console-mode=disable \
-            --assume-yes-for-downloads \
-            --output-filename=DNAtoPolypeptideMessageEncoder.exe
+        run: python -m nuitka dnaencoder_GUI.py --standalone --onefile --follow-imports --enable-plugin=pyside6 --output-dir=build --windows-console-mode=disable --assume-yes-for-downloads --output-filename=DNAtoPolypeptideMessageEncoder.exe
 
       - name: Upload EXE as artifact
         uses: actions/upload-artifact@v4
