@@ -28,20 +28,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtCore import QThread, Signal, QTimer
 import sys
-import logging
-import os
 
 # Import core logic from CLI module
 from dnaencoder_CLI import CreatePossibilities, IterateFrames, EmbedWords, default_sequence, codon_table_1letter, Config, validate_dna_sequence, validate_words, WordCache
 
 VERSION = "0.0.1 - 04.05.2025"
 
-# Setup logging
-logging.basicConfig(
-    filename=os.path.join(Config.DATA_DIR, "app.log"),
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+debug_gui = False
+
 
 class Worker(QThread):
     """Run long operations in a separate thread."""
@@ -63,7 +57,8 @@ class Worker(QThread):
                 self.result.emit(output)
         except Exception as e:
             self.result.emit(f"Error: {str(e)}")
-            logging.error("Worker error: %s", e)
+            if debug_gui:
+                print("Worker error: %s", e)
 
 class WordListDialog(QDialog):
     """Dialog for displaying and filtering encodable words."""
@@ -190,11 +185,18 @@ class DNAWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Help",
-            "This tool helps you:\n"
-            "1. Search for specific words in DNA.\n"
-            "2. Scan DNA for encodable words.\n"
-            "3. Embed 1–3 words into a sequence.\n"
-            "\nDNA sequences can be retrieved from sites like https://www.ncbi.nlm.nih.gov/"
+            "DNA to Polypeptide Encoder – Help\n\n"
+            "This tool allows you to:\n"
+            "1. Search for specific words in a DNA sequence (all six reading frames).\n"
+            "2. Scan a DNA sequence for all known encodable English words.\n"
+            "3. Embed 1–3 words into a DNA sequence by modifying codons (in any reading frame).\n\n"
+            "The default sequence includes the Finnish words:\n"
+            "   • KATAINEN (frame 2)\n"
+            "   • MINISTERI (frame 3)\n\n"
+            "You can find real DNA sequences at:\n"
+            "   https://www.ncbi.nlm.nih.gov/\n\n"
+            "© 2025 Jari Hiltunen / GitHub Divergentti\n"
+            "MIT License"
         )
 
     def show_basics(self):
@@ -202,10 +204,19 @@ class DNAWindow(QMainWindow):
         QMessageBox.information(
             self,
             "DNA Basics",
-            "DNA is made up of nucleotides (A, T, G, C).\n"
-            "Triplets (codons) encode amino acids.\n"
-            "This tool simulates DNA → Amino Acids.\n"
-            "See: https://en.wikipedia.org/wiki/Genetic_code"
+            "DNA Basics\n\n"
+            "DNA (deoxyribonucleic acid) is composed of four nucleotides:\n"
+            "  • A (adenine)\n"
+            "  • T (thymine)\n"
+            "  • G (guanine)\n"
+            "  • C (cytosine)\n\n"
+            "Codons are triplets of nucleotides (e.g., ATG, CCG) that encode amino acids.\n"
+            "\nEvery sequence has six possible reading frames:\n"
+            "  • Three in the forward strand\n"
+            "  • Three in the reverse complement strand\n\n"
+            "This tool simulates DNA → amino acid translation using the genetic code.\n\n"
+            "Learn more:\n"
+            "https://en.wikipedia.org/wiki/Genetic_code"
         )
 
     def update_ui(self):
@@ -223,7 +234,7 @@ class DNAWindow(QMainWindow):
         elif index == 2:
             self.input_layout.addWidget(QLabel("Enter a DNA sequence to scan:"))
             self.input_layout.addWidget(self.dna_input)
-            self.dna_input.setPlaceholderText(f"Enter DNA sequence to scan")
+            self.dna_input.setPlaceholderText(f"Enter DNA sequence to scan (default: {default_sequence[:50]}...)")
         elif index == 3:
             self.input_layout.addWidget(QLabel("Enter 1–3 words to embed, separated by commas:"))
             self.input_layout.addWidget(self.word_input)
@@ -346,9 +357,12 @@ class DNAWindow(QMainWindow):
 
         try:
             embedder = EmbedWords(dna)
-            results = embedder.try_embed_multiple_words(word_list)
+            results, timed_out = embedder.try_embed_multiple_words(word_list)
             if not results:
-                return "❌ No suitable embedding found."
+                message = "❌ No suitable embedding found."
+                if timed_out:
+                    message += f" (timed out after {Config.TIMEOUT} seconds)"
+                return message
 
             lines = [f"✅ Generated {len(results)} sequence(s) with all words embedded:"]
             for idx, r in enumerate(results[:5], 1):
